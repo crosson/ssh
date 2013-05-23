@@ -1,7 +1,7 @@
 require './ssh.rb'
 
 class Cisco_ssh < SSH
-  attr_accessor :config, :users
+  attr_accessor :config, :users, :interfaces
   def initialize(creds)
     @host, @users = creds[:host], []
       
@@ -29,13 +29,24 @@ class Cisco_ssh < SSH
   def update_config
     @config = @ssh.cmd("show run")
     get_users
+    get_interfaces
   end
   
   private
   def get_interfaces
-    interface = {}
-    ints = cmd("show int status")
+    @interfaces = []
+    @config.scan(/interface.*?!/m).each do |int|
+      interface = {}
+      interface[:name] = int.split[1]
       
+      vlan_match = int.match(/vlan\ (\d+)/)
+      interface[:vlan] = vlan_match.nil? ? nil : vlan_match[1].to_i
+      
+      interface[:disabled] = int.include?("shutdown") ? true : false
+      
+      interface[:config] = int
+      
+      @interfaces.push(interface)
     end
   end
   
